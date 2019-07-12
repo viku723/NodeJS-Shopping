@@ -9,12 +9,7 @@ module.exports.getAddProduct = (req, res, next) => {
 };
 module.exports.getEditProduct = (req, res, next) => {
     const editMode = req.query.edit === 'true';
-    req.user.getProducts({
-        where: {
-            id: req.params.productId
-        }
-    }).then(products => {
-        const product = products[0];
+    Product.getProductById(req.params.productId).then(product => {
         res.render('admin/edit-product', {
             product,
             pageTitle: 'Edit product',
@@ -24,21 +19,16 @@ module.exports.getEditProduct = (req, res, next) => {
     }).catch()
 };
 module.exports.addProduct = (req, res, next) => {
-    req.user.createProduct({
-        title: req.body.title,
-        imageUrl: req.body.imageUrl,
-        price: req.body.price,
-        description: req.body.description
-    }).then(() => {
+    const product = new Product(req.body.title, req.body.imageUrl, req.body.price, req.body.description, req.user._id);
+    product.addProduct().then(() => {
         res.redirect('/');
         console.log('Product created');
     }).catch((err) => {
-        console.log('Error while adding book', err);
+        console.log('Error while adding product', err);
     });
 }
 module.exports.getAdminProducts = (req, res, next) => {
-    req.user.getProducts()
-    //Product.findAll()
+    Product.fetchAll()
     .then((products) => {
         res.render('admin/products', {
             pageTitle: 'Admin Products',
@@ -49,26 +39,21 @@ module.exports.getAdminProducts = (req, res, next) => {
 }
 module.exports.editPostProduct = (req, res, next) => {
     const productId = req.body.productId;
-    Product.findByPk(productId).then((product) => {
-        product.title = req.body.title;
-        product.imageUrl = req.body.imageUrl;
-        product.price = req.body.price;
-        product.description = req.body.description;
-        return product.save();
-    }).then(() => {
-        console.log('Product updated');
-        res.redirect('/admin/products');
-    }).catch((err) => {
-        console.log('Error while updating product', err);
+    Product.updateProduct(productId, {
+        title: req.body.title,
+        imageUrl: req.body.imageUrl,
+        price: req.body.price,
+        description: req.body.description,
     })
-
+        .then(() => {
+            console.log('Product updated');
+            res.redirect('/admin/products');
+        }).catch((err) => {
+            console.log('Error while updating product', err);
+        })
 }
 module.exports.deleteProduct = (req, res, next) => {
-    Product.destroy({
-        where: {
-            id: req.body.productId
-        }
-    }).then(() => {
+    Product.deleteProductById(req.body.productId).then(() => {
         console.log('Product deleted');
         res.redirect('/admin/products');
     }).catch();

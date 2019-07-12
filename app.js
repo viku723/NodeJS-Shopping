@@ -1,18 +1,13 @@
 const express = require('express');
 const path = require('path');
-const sequelize = require('./util/database');
+const mangoConnect = require('./util/database').mangoConnect;
 
 const bodyParser = require('body-parser');
 
 const adminRouter = require('./routes/admin');
 const shopRouter = require('./routes/shop');
 const errorController = require('./controller/error');
-const Product = require('./models/product');
 const User = require('./models/user');
-const Cart = require('./models/cart');
-const CartItem = require('./models/cart-item');
-const Order = require('./models/order');
-const OrderItem = require('./models/order-item');
 
 const app = express();
 
@@ -22,7 +17,8 @@ app.set('views', 'views');
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => {
-    User.findByPk(1).then((user) => {
+    User.getUserByEmail('vivek@test.com')
+    .then((user) => {
         if (user) {
             req.user = user;
         }
@@ -36,37 +32,27 @@ app.use(shopRouter);
 app.use(errorController.get404);
 
 // Database stuff
-Product.belongsTo(User, {
-    constraints: true,
-    onDelete: 'CASCADE'
+mangoConnect().then(client => {
+    //console.log('client', client);
+    const newUser = new User('Vivek', 'vivek@test.com');
+    User.getUserByEmail('vivek@test.com')
+        .then((user) => {
+            if (!user) {
+                newUser.addUser()
+                    .then(() => {
+                        console.log('User Added successfully');
+                    })
+                    .catch(() => {
+                        console.log('User adding failed');
+                    })
+            } else {
+                console.log('User details', user);
+            }
+        })
+        .catch(() => {
+            console.log('Could not find user')
+        })
+    app.listen(3000);
+}).catch(() => {
+    console.log('Failed to connect mongo DB')
 });
-User.hasMany(Product);
-User.hasOne(Cart);
-Cart.belongsTo(User);
-Cart.belongsToMany(Product, { through: CartItem });
-Product.belongsToMany(Cart, { through: CartItem });
-Order.belongsTo(User);
-User.hasMany(Order);
-Order.belongsToMany(Product, { through: OrderItem })
-
-sequelize
-   //.sync({ force: true })
-   .sync()
-    .then(result => {
-        return User.findByPk(1);
-    })
-    .then((user) => {
-        if (!user) {
-            return User.create({
-                name: 'Vivek',
-                email: 'vivek@test.com'
-            })
-        }
-        return user;
-    }).then(user => {
-        return user.createCart();
-    }).then(() => {
-        app.listen(3000);
-    }).catch((err) => {
-        console.log('Could not sequelize sync', err);
-    })
